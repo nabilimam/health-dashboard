@@ -203,9 +203,16 @@ async function fetchData(isManual = false) {
     if (dashRes.ok) {
       const dashCsv = await dashRes.text();
       const dashLines = dashCsv.trim().split('\n');
-      if (dashLines[0]) {
-        const cols = dashLines[0].split(',').map(c => c.trim().replace(/^"|"$/g,''));
-        projectedGoalDate = cols[1] || null;
+      // Try each line and each column for anything that looks like a date MM/DD/YYYY
+      for (const line of dashLines) {
+        const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g,''));
+        for (const col of cols) {
+          if (col.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+            projectedGoalDate = col;
+            break;
+          }
+        }
+        if (projectedGoalDate) break;
       }
     }
     badge.className = 'sync-badge';
@@ -453,7 +460,15 @@ function render() {
       </div>
       <div class="stat">
         <div class="stat-label">Goal date est.</div>
-        <div class="stat-value green" style="font-size:1.1rem;">${projectedGoalDate ? new Date(projectedGoalDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</div>
+        <div class="stat-value green" style="font-size:1.1rem;">${(() => {
+          if (!projectedGoalDate) return '—';
+          const parts = projectedGoalDate.split('/');
+          if (parts.length === 3) {
+            const d = new Date(+parts[2], +parts[0]-1, +parts[1]);
+            return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+          }
+          return projectedGoalDate;
+        })()}</div>
         <div class="stat-sub" style="color:var(--muted)">updated weekly</div>
       </div>
     </div>
