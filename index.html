@@ -443,7 +443,7 @@ function render() {
   charts.w = new Chart(document.getElementById('wChart'), {
     type: 'line',
     data: { labels, datasets: [
-      { data: weightData, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4f8ef7', spanGaps: false },
+      { data: weightData, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4f8ef7', spanGaps: true },
       { data: filtered.map(()=>200), borderColor: 'rgba(62,207,142,0.5)', borderDash: [4,3], borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent' },
     ]},
     options: { ...gridOpts(v => v+' lb'), scales: { ...gridOpts().scales, y: { ...gridOpts().scales.y, min: Math.min(198, ...weights)-1, max: Math.max(...weights)+1, ticks: { font:{family:'DM Mono',size:10}, color:'#6b7280', callback: v=>v+' lb' }, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} } } }
