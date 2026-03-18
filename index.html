@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+  (function() {
+    if (sessionStorage.getItem('auth') !== '4846') {
+      document.addEventListener('DOMContentLoaded', function() {
+        var overlay = document.getElementById('auth-overlay');
+        overlay.style.display = 'flex';
+      });
+    }
+  })();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Health Dashboard</title>
@@ -104,6 +114,34 @@
 </style>
 </head>
 <body>
+<div id="auth-overlay" style="display:none;position:fixed;inset:0;background:#0e0f11;z-index:9999;align-items:center;justify-content:center;font-family:'Syne',sans-serif;">
+  <div style="background:#16181c;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:2.5rem 2rem;width:100%;max-width:360px;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:0.5rem;">🔒</div>
+    <h2 style="color:#f0f0ee;font-size:1.25rem;margin-bottom:0.25rem;">Health Dashboard</h2>
+    <p style="color:#6b7280;font-size:0.85rem;margin-bottom:1.5rem;">Enter password to continue</p>
+    <input id="auth-input" type="password" placeholder="Password" autofocus
+      style="width:100%;padding:0.75rem 1rem;background:#1e2128;border:1px solid rgba(255,255,255,0.07);border-radius:8px;color:#f0f0ee;font-size:1rem;outline:none;margin-bottom:0.75rem;font-family:'DM Mono',monospace;letter-spacing:0.1em;"
+      onkeydown="if(event.key==='Enter')checkAuth()">
+    <div id="auth-error" style="color:#f87171;font-size:0.8rem;height:1rem;margin-bottom:0.5rem;"></div>
+    <button onclick="checkAuth()"
+      style="width:100%;padding:0.75rem;background:#4f8ef7;border:none;border-radius:8px;color:#fff;font-size:1rem;font-family:'Syne',sans-serif;font-weight:600;cursor:pointer;">
+      Unlock
+    </button>
+  </div>
+</div>
+<script>
+  function checkAuth() {
+    var input = document.getElementById('auth-input');
+    if (input.value === '4846') {
+      sessionStorage.setItem('auth', '4846');
+      document.getElementById('auth-overlay').style.display = 'none';
+    } else {
+      document.getElementById('auth-error').textContent = 'Incorrect password';
+      input.value = '';
+      input.focus();
+    }
+  }
+</script>
 
 <div class="header">
   <div class="header-left">
