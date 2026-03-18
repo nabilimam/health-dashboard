@@ -465,7 +465,7 @@ function render() {
           <div class="panel-legend">
             <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>actual</span>
             <span class="leg"><span class="leg-swatch" style="background:#93c5fd;border:1px dashed #93c5fd"></span>7-day avg</span>
-            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7;border:1px dashed #4f8ef7"></span>projected</span>
+            <span class="leg"><span class="leg-swatch" style="background:#93c5fd;border:1px dashed #93c5fd"></span>projected</span>
             <span class="leg"><span class="leg-swatch" style="background:#3ecf8e;border:1px dashed #3ecf8e"></span>200 lb goal</span>
           </div>
         </div>
@@ -537,7 +537,7 @@ function render() {
     data: { labels: wLabels, datasets: [
       { data: wActual, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', borderWidth: 2, tension: 0.35, pointRadius: d => d.raw !== null ? 3 : 0, pointBackgroundColor: '#4f8ef7', spanGaps: true },
       { data: wRolling, borderColor: '#93c5fd', borderDash: [5,4], borderWidth: 1.5, backgroundColor: 'transparent', tension: 0.4, pointRadius: 0, spanGaps: false },
-      { data: wProj, borderColor: '#4f8ef7', borderDash: [5,4], borderWidth: 1.5, backgroundColor: 'transparent', tension: 0.3, pointRadius: 0, spanGaps: false },
+      { data: wProj, borderColor: '#93c5fd', borderDash: [5,4], borderWidth: 1.5, backgroundColor: 'transparent', tension: 0.3, pointRadius: 0, spanGaps: false },
       { data: wLabels.map(()=>200), borderColor: 'rgba(62,207,142,0.5)', borderDash: [4,3], borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent' },
     ]},
     options: { ...gridOpts(v => v+' lb'), scales: { ...gridOpts().scales, y: { ...gridOpts().scales.y, min: wMin, max: wMax, ticks: { font:{family:'DM Mono',size:10}, color:'#6b7280', callback: v=>v+' lb' }, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} }, x: { ticks:{font:{family:'DM Mono',size:10},color:'#6b7280',maxRotation:45,autoSkip:true,maxTicksLimit:12}, grid:{display:false}, border:{display:false} } } }
