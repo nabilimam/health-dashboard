@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #16181c;
+    --surface2: #1e2128;
+    --border: rgba(255,255,255,0.07);
+    --text: #f0f0ee;
+    --muted: #6b7280;
+    --accent-blue: #4f8ef7;
+    --accent-green: #3ecf8e;
+    --accent-amber: #f59e0b;
+    --accent-red: #f87171;
+    --accent-purple: #a78bfa;
+    --accent-coral: #fb7185;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-display); min-height: 100vh; }
+
+  /* HEADER */
+  .header { padding: 2rem 2rem 0; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
+  .header-left h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+  .header-left p { font-size: 0.8rem; color: var(--muted); font-family: var(--font-mono); margin-top: 4px; }
+  .sync-badge { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-green); background: rgba(62,207,142,0.1); border: 1px solid rgba(62,207,142,0.2); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; }
+  .sync-badge.error { color: var(--accent-red); background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); animation: pulse 2s infinite; }
+  .sync-badge.error .sync-dot { background: var(--accent-red); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .refresh-btn { font-family: var(--font-mono); font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+  .refresh-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+  .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+  /* FILTERS */
+  .filters { padding: 1.25rem 2rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .filter-btn { font-family: var(--font-mono); font-size: 0.72rem; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+  .filter-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+  .filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .custom-range { display: none; align-items: center; gap: 8px; }
+  .custom-range.visible { display: flex; }
+  .custom-range input[type="date"] { font-family: var(--font-mono); font-size: 0.72rem; padding: 5px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); colorscheme: dark; }
+  .custom-range button { font-family: var(--font-mono); font-size: 0.72rem; padding: 5px 12px; background: var(--accent-blue); border: none; border-radius: 6px; color: #fff; cursor: pointer; }
+  .month-select { font-family: var(--font-mono); font-size: 0.72rem; padding: 6px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer; display: none; }
+  .month-select.visible { display: block; }
+
+  /* STAT CARDS */
+  .cards { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; padding: 1.5rem 2rem 0; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; }
+  .stat-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .stat-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+  .stat-sub { font-family: var(--font-mono); font-size: 0.68rem; margin-top: 4px; }
+  .green { color: var(--accent-green); }
+  .red { color: var(--accent-red); }
+  .amber { color: var(--accent-amber); }
+  .blue { color: var(--accent-blue); }
+  .purple { color: var(--accent-purple); }
+
+  /* CHARTS GRID */
+  .grid { display: grid; padding: 1.25rem 2rem; gap: 1rem; grid-template-columns: minmax(0,2fr) minmax(0,1fr); }
+  .grid-full { grid-column: 1 / -1; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.25rem; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .panel-title { font-size: 0.8rem; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+  .panel-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .leg { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); }
+  .leg-swatch { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* BIKE DOTS */
+  .bike-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bdot { width: 42px; height: 42px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--font-mono); }
+  .bdot.rode { background: rgba(62,207,142,0.15); border: 1.5px solid var(--accent-green); color: var(--accent-green); }
+  .bdot.no-ride { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+  .bdot-date { font-size: 9px; font-weight: 500; line-height: 1.2; }
+  .bdot-rpe { font-size: 8px; line-height: 1.2; }
+
+  /* LOADING / ERROR */
+  .loading { text-align: center; padding: 4rem; font-family: var(--font-mono); color: var(--muted); font-size: 0.8rem; }
+  .error-msg { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--accent-red); padding: 1rem 1.5rem; margin: 1rem 2rem; border-radius: 8px; font-family: var(--font-mono); font-size: 0.75rem; }
+
+  /* GOAL BAR */
+  .goal-bar-wrap { margin-top: 8px; }
+  .goal-bar-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .goal-bar-fill { height: 100%; border-radius: 3px; background: var(--accent-green); transition: width 0.4s ease; }
+  .goal-bar-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); margin-top: 4px; }
+
+  @media (max-width: 900px) {
+    .cards { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid { grid-template-columns: minmax(0,1fr); }
+  }
+  @media (max-width: 500px) {
+    .header, .filters, .cards, .grid { padding-left: 1rem; padding-right: 1rem; }
+    .cards { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Health Dashboard</h1>
+    <p id="dateRangeLabel">Loading data...</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">
+      <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+      Refresh
+    </button>
+    <div class="sync-badge" id="syncBadge"><span class="sync-dot"></span><span id="syncLabel">Syncing...</span></div>
+  </div>
+</div>
+
+<div class="filters">
+  <button class="filter-btn" data-filter="7">Last 7 days</button>
+  <button class="filter-btn" data-filter="30">Last 30 days</button>
+  <button class="filter-btn active" data-filter="month">This month</button>
+  <button class="filter-btn" data-filter="ytd">Year to date</button>
+  <div class="filter-sep"></div>
+  <select class="month-select" id="monthSelect"></select>
+  <button class="filter-btn" data-filter="custom">Custom range</button>
+  <div class="custom-range" id="customRange">
+    <input type="date" id="startDate">
+    <span style="color:var(--muted);font-size:0.7rem;">→</span>
+    <input type="date" id="endDate">
+    <button onclick="applyCustomRange()">Apply</button>
+  </div>
+</div>
+
+<div id="mainContent">
+  <div class="loading">Fetching data from Google Sheets...</div>
+</div>
+
+<script>
+const SHEET_ID = '108acbCgbNxMSdGOfyInO4TWsaoB4cQupe45eU08o11k';
+const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+
+let allData = [];
+let activeFilter = 'month';
+let customStart = null, customEnd = null;
+let charts = {};
+
+async function fetchData(isManual = false) {
+  const badge = document.getElementById('syncBadge');
+  const btn = document.getElementById('refreshBtn');
+  if (isManual) btn.classList.add('spinning');
+  try {
+    const res = await fetch(SHEET_URL + '&t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const csv = await res.text();
+    allData = parseCSV(csv);
+    badge.className = 'sync-badge';
+    document.getElementById('syncLabel').textContent = 'Live · ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    buildMonthSelect();
+    render();
+  } catch(e) {
+    badge.className = 'sync-badge error';
+    document.getElementById('syncLabel').textContent = 'Failed to sync';
+    if (!allData.length) {
+      document.getElementById('mainContent').innerHTML = `<div class="error-msg">Could not load data from Google Sheets. Make sure the sheet is set to "Anyone with the link can view", then click Refresh.<br><br>Error: ${e.message}</div>`;
+    }
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+function manualRefresh() { fetchData(true); }
+
+function parseCSV(csv) {
+  const lines = csv.trim().split('\n').map(l => l.split(',').map(c => c.trim().replace(/^"|"$/g,'')));
+  const rows = [];
+  for (let i = 2; i < lines.length; i++) {
+    const r = lines[i];
+    if (!r[1] || !r[1].match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+    const [m, d, y] = r[1].split('/');
+    const date = new Date(+y, +m-1, +d);
+    const bikeVal = (r[10] || '').toLowerCase();
+    const rpeMatch = bikeVal.match(/rpe\s*([\d.]+)/i);
+    rows.push({
+      date,
+      dateStr: r[1],
+      weight: parseFloat(r[2]) || null,
+      calories: parseInt(r[3]) || null,
+      protein: parseInt(r[4]) || null,
+      carbs: parseInt(r[5]) || null,
+      fiber: parseInt(r[6]) || null,
+      fat: parseInt(r[7]) || null,
+      sodium: parseInt(r[8]) || null,
+      steps: parseInt(r[9]) || null,
+      bike: bikeVal.includes('yes'),
+      rpe: rpeMatch ? rpeMatch[1] : null,
+    });
+  }
+  return rows.sort((a,b) => a.date - b.date);
+}
+
+function buildMonthSelect() {
+  const sel = document.getElementById('monthSelect');
+  const months = {};
+  allData.forEach(d => {
+    const key = d.date.getFullYear() + '-' + String(d.date.getMonth()+1).padStart(2,'0');
+    const label = d.date.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    months[key] = label;
+  });
+  sel.innerHTML = Object.entries(months).reverse().map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+  sel.addEventListener('change', () => { activeFilter = 'monthpick'; render(); });
+}
+
+function getFilteredData() {
+  const now = new Date();
+  now.setHours(23,59,59,999);
+  if (activeFilter === '7') {
+    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate()-6); cutoff.setHours(0,0,0,0);
+    return allData.filter(d => d.date >= cutoff && d.date <= now);
+  }
+  if (activeFilter === '30') {
+    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate()-29); cutoff.setHours(0,0,0,0);
+    return allData.filter(d => d.date >= cutoff && d.date <= now);
+  }
+  if (activeFilter === 'month') {
+    return allData.filter(d => d.date.getMonth()===now.getMonth() && d.date.getFullYear()===now.getFullYear());
+  }
+  if (activeFilter === 'ytd') {
+    return allData.filter(d => d.date.getFullYear()===now.getFullYear());
+  }
+  if (activeFilter === 'monthpick') {
+    const val = document.getElementById('monthSelect').value;
+    const [y,m] = val.split('-').map(Number);
+    return allData.filter(d => d.date.getFullYear()===y && d.date.getMonth()===m-1);
+  }
+  if (activeFilter === 'custom' && customStart && customEnd) {
+    return allData.filter(d => d.date >= customStart && d.date <= customEnd);
+  }
+  return allData;
+}
+
+function avg(arr) {
+  const valid = arr.filter(v => v !== null && !isNaN(v));
+  return valid.length ? Math.round(valid.reduce((a,b)=>a+b,0)/valid.length) : null;
+}
+
+function fmt(n, dec=1) { return n !== null ? (+n).toFixed(dec) : '—'; }
+
+function applyCustomRange() {
+  const s = document.getElementById('startDate').value;
+  const e = document.getElementById('endDate').value;
+  if (s && e) {
+    customStart = new Date(s + 'T00:00:00');
+    customEnd = new Date(e + 'T23:59:59');
+    activeFilter = 'custom';
+    render();
+  }
+}
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
+  charts = {};
+}
+
+function render() {
+  const filtered = getFilteredData();
+  if (!filtered.length) {
+    document.getElementById('mainContent').innerHTML = '<div class="loading">No data for selected range.</div>';
+    return;
+  }
+
+  const labels = filtered.map(d => d.date.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}));
+  const weightData = filtered.map(d => d.weight);
+  const calData = filtered.map(d => d.calories);
+  const proteinData = filtered.map(d => d.protein);
+  const carbData = filtered.map(d => d.carbs);
+  const fatData = filtered.map(d => d.fat);
+  const stepsData = filtered.map(d => d.steps);
+
+  const weights = weightData.filter(v=>v!==null);
+  const startWeight = weights[0] || null;
+  const latestWeight = weights[weights.length-1] || null;
+  const weightChange = (startWeight && latestWeight) ? Math.round((latestWeight - startWeight)*10)/10 : null;
+  const goalWeight = 200;
+  const totalLossNeeded = allData.find(d=>d.weight)?.weight - goalWeight || 1;
+  const lostSoFar = (allData.find(d=>d.weight)?.weight || latestWeight) - (latestWeight || 0);
+  const goalPct = Math.min(100, Math.max(0, Math.round((lostSoFar / totalLossNeeded)*100)));
+
+  const avgCal = avg(calData);
+  const avgProtein = avg(proteinData);
+  const avgSteps = avg(stepsData);
+  const rides = filtered.filter(d=>d.bike).length;
+
+  if (filtered.length > 1) {
+    const firstD = filtered[0].date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const lastD = filtered[filtered.length-1].date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    document.getElementById('dateRangeLabel').textContent = firstD + ' – ' + lastD;
+  }
+
+  destroyCharts();
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="cards">
+      <div class="stat">
+        <div class="stat-label">Current weight</div>
+        <div class="stat-value blue">${latestWeight ? latestWeight + ' lb' : '—'}</div>
+        <div class="goal-bar-wrap">
+          <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${goalPct}%"></div></div>
+          <div class="goal-bar-label"><span>start</span><span>${goalPct}% to 200 lb</span></div>
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Weight change</div>
+        <div class="stat-value ${weightChange===null?'':weightChange<0?'green':'red'}">${weightChange===null?'—':(weightChange>0?'+':'')+weightChange+' lb'}</div>
+        <div class="stat-sub ${weightChange!==null&&weightChange<0?'green':'amber'}">${weightChange!==null&&weightChange<0?'trending down':'in this period'}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Avg calories</div>
+        <div class="stat-value purple">${avgCal || '—'}</div>
+        <div class="stat-sub" style="color:var(--muted)">TDEE ~2,670</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Avg protein</div>
+        <div class="stat-value ${avgProtein && avgProtein>=150?'green':'amber'}">${avgProtein ? avgProtein+'g' : '—'}</div>
+        <div class="stat-sub ${avgProtein && avgProtein>=150?'green':'amber'}">${avgProtein && avgProtein>=150?'on target':'goal: 150g+'}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Avg steps</div>
+        <div class="stat-value ${avgSteps&&avgSteps>=7500?'green':'amber'}">${avgSteps?avgSteps.toLocaleString():'—'}</div>
+        <div class="stat-sub" style="color:var(--muted)">${rides} ride${rides!==1?'s':''} this period</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel grid-full">
+        <div class="panel-header">
+          <span class="panel-title">Weight trend</span>
+          <div class="panel-legend">
+            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>actual</span>
+            <span class="leg"><span class="leg-swatch" style="background:#3ecf8e;border:1px dashed #3ecf8e"></span>200 lb goal</span>
+          </div>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="wChart"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Calories vs. TDEE</span>
+          <div class="panel-legend">
+            <span class="leg"><span class="leg-swatch" style="background:#a78bfa"></span>consumed</span>
+            <span class="leg"><span class="leg-swatch" style="background:#f59e0b"></span>TDEE</span>
+          </div>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="cChart"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Daily steps</span>
+          <div class="panel-legend">
+            <span class="leg"><span class="leg-swatch" style="background:#3ecf8e"></span>steps</span>
+            <span class="leg"><span class="leg-swatch" style="background:rgba(62,207,142,0.3)"></span>10k</span>
+          </div>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="sChart"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Macros</span>
+          <div class="panel-legend">
+            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>protein</span>
+            <span class="leg"><span class="leg-swatch" style="background:#f59e0b"></span>carbs</span>
+            <span class="leg"><span class="leg-swatch" style="background:#fb7185"></span>fat</span>
+          </div>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="mChart"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Bike rides</span>
+          <div class="panel-legend">
+            <span class="leg"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:rgba(62,207,142,0.15);border:1px solid #3ecf8e;"></span>rode (RPE shown)</span>
+            <span class="leg"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);"></span>no ride</span>
+          </div>
+        </div>
+        <div class="bike-grid" id="bikeGrid"></div>
+      </div>
+    </div>
+  `;
+
+  const gridOpts = (yLabel) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { bodyFont: { family: 'DM Mono' }, titleFont: { family: 'DM Mono' } } },
+    scales: {
+      y: { ticks: { font: { family: 'DM Mono', size: 10 }, color: '#6b7280', callback: yLabel }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false } },
+      x: { ticks: { font: { family: 'DM Mono', size: 10 }, color: '#6b7280', maxRotation: 45, autoSkip: true, maxTicksLimit: 10 }, grid: { display: false }, border: { display: false } }
+    }
+  });
+
+  charts.w = new Chart(document.getElementById('wChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { data: weightData, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4f8ef7', spanGaps: false },
+      { data: filtered.map(()=>200), borderColor: 'rgba(62,207,142,0.5)', borderDash: [4,3], borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent' },
+    ]},
+    options: { ...gridOpts(v => v+' lb'), scales: { ...gridOpts().scales, y: { ...gridOpts().scales.y, min: Math.min(198, ...weights)-1, max: Math.max(...weights)+1, ticks: { font:{family:'DM Mono',size:10}, color:'#6b7280', callback: v=>v+' lb' }, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} } } }
+  });
+
+  charts.c = new Chart(document.getElementById('cChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { data: calData, backgroundColor: 'rgba(167,139,250,0.7)', borderRadius: 3, borderSkipped: false },
+      { data: filtered.map(()=>2670), type: 'line', borderColor: '#f59e0b', borderDash: [4,3], borderWidth: 1.5, pointRadius: 0, backgroundColor: 'transparent' },
+    ]},
+    options: { ...gridOpts(v => v.toLocaleString()), scales: { ...gridOpts().scales, y: { min: 1400, ticks:{font:{family:'DM Mono',size:10},color:'#6b7280',callback:v=>v.toLocaleString()}, grid:{color:'rgba(255,255,255,0.04)'},border:{display:false} } } }
+  });
+
+  charts.s = new Chart(document.getElementById('sChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { data: stepsData, backgroundColor: 'rgba(62,207,142,0.65)', borderRadius: 3, borderSkipped: false },
+      { data: filtered.map(()=>10000), type: 'line', borderColor: 'rgba(62,207,142,0.35)', borderDash: [4,3], borderWidth: 1.5, pointRadius: 0, backgroundColor: 'transparent' },
+    ]},
+    options: gridOpts(v => (v/1000).toFixed(0)+'k')
+  });
+
+  charts.m = new Chart(document.getElementById('mChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Protein', data: proteinData, backgroundColor: 'rgba(79,142,247,0.8)', borderRadius: 2, borderSkipped: false },
+      { label: 'Carbs',   data: carbData,    backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 2, borderSkipped: false },
+      { label: 'Fat',     data: fatData,     backgroundColor: 'rgba(251,113,133,0.7)', borderRadius: 2, borderSkipped: false },
+    ]},
+    options: { ...gridOpts(), scales: { x: { stacked: true, ticks:{font:{family:'DM Mono',size:10},color:'#6b7280',maxRotation:45,autoSkip:true,maxTicksLimit:10}, grid:{display:false}, border:{display:false} }, y: { stacked: true, ticks:{font:{family:'DM Mono',size:10},color:'#6b7280'}, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} } } }
+  });
+
+  const bikeGrid = document.getElementById('bikeGrid');
+  filtered.forEach(d => {
+    const dot = document.createElement('div');
+    dot.className = 'bdot ' + (d.bike ? 'rode' : 'no-ride');
+    const shortDate = (d.date.getMonth()+1) + '/' + d.date.getDate();
+    dot.innerHTML = d.bike
+      ? `<span class="bdot-date">${shortDate}</span><span class="bdot-rpe">RPE ${d.rpe}</span>`
+      : `<span class="bdot-date">${shortDate}</span>`;
+    dot.title = d.bike ? `Rode · RPE ${d.rpe}` : 'No ride';
+    bikeGrid.appendChild(dot);
+  });
+}
+
+document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const f = btn.dataset.filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('customRange').classList.toggle('visible', f === 'custom');
+    document.getElementById('monthSelect').classList.toggle('visible', f === 'month' || f === 'monthpick');
+    if (f !== 'custom') { activeFilter = f === 'month' ? 'monthpick' : f; render(); }
+    if (f === 'month') { activeFilter = 'monthpick'; document.getElementById('monthSelect').classList.add('visible'); }
+  });
+});
+
+fetchData();
+setInterval(fetchData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
