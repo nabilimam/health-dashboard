@@ -318,6 +318,42 @@ function render() {
   const fatData = filtered.map(d => d.fat);
   const stepsData = filtered.map(d => d.steps);
 
+  // Build continuous daily labels+data for weight chart spanning filtered range + 14 days projection
+  const wStart = filtered[0].date;
+  const wEnd = new Date(filtered[filtered.length-1].date);
+  wEnd.setDate(wEnd.getDate() + 14);
+  const wLabels = [], wActual = [], wProj = [];
+  const weightByDay = {};
+  filtered.forEach(d => { if (d.weight) weightByDay[d.date.toDateString()] = d.weight; });
+
+  const knownW = filtered.filter(d => d.weight !== null);
+  let slope = 0, projIntercept = 0;
+  if (knownW.length >= 2) {
+    const t0ref = knownW[0].date.getTime();
+    const xs = knownW.map(d => (d.date.getTime()-t0ref)/86400000);
+    const ys = knownW.map(d => d.weight);
+    const n = xs.length;
+    const sumX = xs.reduce((a,b)=>a+b,0), sumY = ys.reduce((a,b)=>a+b,0);
+    const sumXY = xs.reduce((s,x,i)=>s+x*ys[i],0), sumX2 = xs.reduce((s,x)=>s+x*x,0);
+    slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+    const lastKnownX = (knownW[knownW.length-1].date.getTime()-t0ref)/86400000;
+    projIntercept = knownW[knownW.length-1].weight - slope * lastKnownX;
+    for (let d = new Date(wStart); d <= wEnd; d.setDate(d.getDate()+1)) {
+      const cur = new Date(d);
+      wLabels.push(cur.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}));
+      wActual.push(weightByDay[cur.toDateString()] || null);
+      const isAfterLast = cur > knownW[knownW.length-1].date;
+      const daysSince = (cur.getTime()-t0ref)/86400000;
+      wProj.push(isAfterLast ? Math.round((slope*daysSince + projIntercept)*10)/10 : null);
+    }
+  } else {
+    filtered.forEach(d => {
+      wLabels.push(d.date.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}));
+      wActual.push(d.weight);
+      wProj.push(null);
+    });
+  }
+
   const weights = weightData.filter(v=>v!==null);
   const startWeight = weights[0] || null;
   const latestWeight = weights[weights.length-1] || null;
@@ -378,6 +414,7 @@ function render() {
           <span class="panel-title">Weight trend</span>
           <div class="panel-legend">
             <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>actual</span>
+            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7;opacity:0.4;border:1px dashed #4f8ef7"></span>projected</span>
             <span class="leg"><span class="leg-swatch" style="background:#3ecf8e;border:1px dashed #3ecf8e"></span>200 lb goal</span>
           </div>
         </div>
@@ -442,11 +479,12 @@ function render() {
 
   charts.w = new Chart(document.getElementById('wChart'), {
     type: 'line',
-    data: { labels, datasets: [
-      { data: weightData, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4f8ef7', spanGaps: true },
-      { data: filtered.map(()=>200), borderColor: 'rgba(62,207,142,0.5)', borderDash: [4,3], borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent' },
+    data: { labels: wLabels, datasets: [
+      { data: wActual, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', tension: 0.35, pointRadius: d => d.raw !== null ? 4 : 0, pointBackgroundColor: '#4f8ef7', spanGaps: true },
+      { data: wProj, borderColor: '#4f8ef7', borderDash: [5,4], borderWidth: 1.5, backgroundColor: 'transparent', tension: 0.3, pointRadius: 0, spanGaps: false },
+      { data: wLabels.map(()=>200), borderColor: 'rgba(62,207,142,0.5)', borderDash: [4,3], borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent' },
     ]},
-    options: { ...gridOpts(v => v+' lb'), scales: { ...gridOpts().scales, y: { ...gridOpts().scales.y, min: Math.min(198, ...weights)-1, max: Math.max(...weights)+1, ticks: { font:{family:'DM Mono',size:10}, color:'#6b7280', callback: v=>v+' lb' }, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} } } }
+    options: { ...gridOpts(v => v+' lb'), scales: { ...gridOpts().scales, y: { ...gridOpts().scales.y, min: Math.min(198, ...(wActual.filter(v=>v!==null).concat(wProj.filter(v=>v!==null))))-1, max: Math.max(...(wActual.filter(v=>v!==null)))+1, ticks: { font:{family:'DM Mono',size:10}, color:'#6b7280', callback: v=>v+' lb' }, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} }, x: { ticks:{font:{family:'DM Mono',size:10},color:'#6b7280',maxRotation:45,autoSkip:true,maxTicksLimit:12}, grid:{display:false}, border:{display:false} } } }
   });
 
   charts.c = new Chart(document.getElementById('cChart'), {
