@@ -463,8 +463,8 @@ function render() {
         <div class="panel-header">
           <span class="panel-title">Weight trend</span>
           <div class="panel-legend">
-            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7;opacity:0.4;"></span>actual</span>
-            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>7-day avg</span>
+            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>actual</span>
+            <span class="leg"><span class="leg-swatch" style="background:#93c5fd;border:1px dashed #93c5fd"></span>7-day avg</span>
             <span class="leg"><span class="leg-swatch" style="background:#4f8ef7;border:1px dashed #4f8ef7"></span>projected</span>
             <span class="leg"><span class="leg-swatch" style="background:#3ecf8e;border:1px dashed #3ecf8e"></span>200 lb goal</span>
           </div>
@@ -535,8 +535,8 @@ function render() {
   charts.w = new Chart(document.getElementById('wChart'), {
     type: 'line',
     data: { labels: wLabels, datasets: [
-      { data: wActual, borderColor: 'rgba(79,142,247,0.3)', backgroundColor: 'transparent', borderWidth: 1, tension: 0, pointRadius: d => d.raw !== null ? 3 : 0, pointBackgroundColor: 'rgba(79,142,247,0.5)', spanGaps: true },
-      { data: wRolling, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.08)', borderWidth: 2.5, tension: 0.4, pointRadius: 0, spanGaps: false, fill: true },
+      { data: wActual, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', borderWidth: 2, tension: 0.35, pointRadius: d => d.raw !== null ? 3 : 0, pointBackgroundColor: '#4f8ef7', spanGaps: true },
+      { data: wRolling, borderColor: '#93c5fd', borderDash: [5,4], borderWidth: 1.5, backgroundColor: 'transparent', tension: 0.4, pointRadius: 0, spanGaps: false },
       { data: wProj, borderColor: '#4f8ef7', borderDash: [5,4], borderWidth: 1.5, backgroundColor: 'transparent', tension: 0.3, pointRadius: 0, spanGaps: false },
       { data: wLabels.map(()=>200), borderColor: 'rgba(62,207,142,0.5)', borderDash: [4,3], borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent' },
     ]},
