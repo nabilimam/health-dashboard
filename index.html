@@ -64,7 +64,7 @@
   .month-select.visible { display: block; }
 
   /* STAT CARDS */
-  .cards { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; padding: 1.5rem 2rem 0; }
+  .cards { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; padding: 1.5rem 2rem 0; }
   .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; }
   .stat-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
   .stat-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
@@ -104,7 +104,7 @@
   .goal-bar-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); margin-top: 4px; }
 
   @media (max-width: 900px) {
-    .cards { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .cards { grid-template-columns: repeat(3, minmax(0,1fr)); }
     .grid { grid-template-columns: minmax(0,1fr); }
   }
   @media (max-width: 500px) {
@@ -180,21 +180,34 @@
 <script>
 const SHEET_ID = '108acbCgbNxMSdGOfyInO4TWsaoB4cQupe45eU08o11k';
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const DASH_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=804165948`;
 
 let allData = [];
 let activeFilter = 'month';
 let customStart = null, customEnd = null;
 let charts = {};
+let projectedGoalDate = null;
 
 async function fetchData(isManual = false) {
   const badge = document.getElementById('syncBadge');
   const btn = document.getElementById('refreshBtn');
   if (isManual) btn.classList.add('spinning');
   try {
-    const res = await fetch(SHEET_URL + '&t=' + Date.now());
+    const [res, dashRes] = await Promise.all([
+      fetch(SHEET_URL + '&t=' + Date.now()),
+      fetch(DASH_URL + '&t=' + Date.now())
+    ]);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const csv = await res.text();
     allData = parseCSV(csv);
+    if (dashRes.ok) {
+      const dashCsv = await dashRes.text();
+      const dashLines = dashCsv.trim().split('\n');
+      if (dashLines[0]) {
+        const cols = dashLines[0].split(',').map(c => c.trim().replace(/^"|"$/g,''));
+        projectedGoalDate = cols[1] || null;
+      }
+    }
     badge.className = 'sync-badge';
     document.getElementById('syncLabel').textContent = 'Live · ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
     buildMonthSelect();
@@ -405,6 +418,11 @@ function render() {
         <div class="stat-label">Avg steps</div>
         <div class="stat-value ${avgSteps&&avgSteps>=7500?'green':'amber'}">${avgSteps?avgSteps.toLocaleString():'—'}</div>
         <div class="stat-sub" style="color:var(--muted)">${rides} ride${rides!==1?'s':''} this period</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Goal date est.</div>
+        <div class="stat-value green" style="font-size:1.1rem;">${projectedGoalDate ? new Date(projectedGoalDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</div>
+        <div class="stat-sub" style="color:var(--muted)">updated weekly</div>
       </div>
     </div>
 
