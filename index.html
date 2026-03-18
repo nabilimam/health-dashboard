@@ -335,9 +335,10 @@ function render() {
   const wStart = filtered[0].date;
   const wEnd = new Date(filtered[filtered.length-1].date);
   wEnd.setDate(wEnd.getDate() + 14);
-  const wLabels = [], wActual = [], wProj = [];
+  const wLabels = [], wActual = [], wProj = [], wRolling = [];
   const weightByDay = {};
-  filtered.forEach(d => { if (d.weight) weightByDay[d.date.toDateString()] = d.weight; });
+  // Use ALL data for rolling avg so it has enough history even in filtered views
+  allData.forEach(d => { if (d.weight) weightByDay[d.date.toDateString()] = d.weight; });
 
   const knownW = filtered.filter(d => d.weight !== null);
   let slope = 0, projIntercept = 0;
@@ -351,19 +352,50 @@ function render() {
     slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
     const lastKnownX = (knownW[knownW.length-1].date.getTime()-t0ref)/86400000;
     projIntercept = knownW[knownW.length-1].weight - slope * lastKnownX;
-    for (let d = new Date(wStart); d <= wEnd; d.setDate(d.getDate()+1)) {
-      const cur = new Date(d);
-      wLabels.push(cur.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}));
+
+    // Build day-by-day arrays including 7 days before wStart for rolling avg warmup
+    const warmupStart = new Date(wStart); warmupStart.setDate(warmupStart.getDate()-7);
+    const allDays = [], allWeights = [];
+    for (let d = new Date(warmupStart); d <= wEnd; d.setDate(d.getDate()+1)) {
+      allDays.push(new Date(d));
+      allWeights.push(weightByDay[new Date(d).toDateString()] || null);
+    }
+
+    // Compute 7-day rolling average (centered, uses up to 7 known values in a ±3 window)
+    // For each day look back up to 6 days and forward up to 0 (trailing avg) for smoothness
+    const warmupLen = 7;
+    for (let i = warmupLen; i < allDays.length; i++) {
+      const cur = allDays[i];
+      const lbl = cur.toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
+      wLabels.push(lbl);
       wActual.push(weightByDay[cur.toDateString()] || null);
+
+      // 7-day trailing rolling avg over known values in window
+      const window = allWeights.slice(i-6, i+1).filter(v => v !== null);
+      const rollingVal = window.length >= 2 ? Math.round((window.reduce((a,b)=>a+b,0)/window.length)*10)/10 : null;
+
       const isAfterLast = cur > knownW[knownW.length-1].date;
       const daysSince = (cur.getTime()-t0ref)/86400000;
-      wProj.push(isAfterLast ? Math.round((slope*daysSince + projIntercept)*10)/10 : null);
+      const projVal = Math.round((slope*daysSince + projIntercept)*10)/10;
+
+      if (isAfterLast) {
+        wRolling.push(null);
+        wProj.push(projVal);
+      } else {
+        wRolling.push(rollingVal);
+        wProj.push(null);
+      }
     }
+    // Connect rolling avg to projection — add one overlap point
+    const lastRollingIdx = wRolling.map((v,i)=>v!==null?i:-1).filter(i=>i>=0).pop();
+    if (lastRollingIdx !== undefined) wProj[lastRollingIdx] = wRolling[lastRollingIdx];
+
   } else {
     filtered.forEach(d => {
       wLabels.push(d.date.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}));
       wActual.push(d.weight);
       wProj.push(null);
+      wRolling.push(null);
     });
   }
 
@@ -431,8 +463,9 @@ function render() {
         <div class="panel-header">
           <span class="panel-title">Weight trend</span>
           <div class="panel-legend">
-            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>actual</span>
-            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7;opacity:0.4;border:1px dashed #4f8ef7"></span>projected</span>
+            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7;opacity:0.4;"></span>actual</span>
+            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7"></span>7-day avg</span>
+            <span class="leg"><span class="leg-swatch" style="background:#4f8ef7;border:1px dashed #4f8ef7"></span>projected</span>
             <span class="leg"><span class="leg-swatch" style="background:#3ecf8e;border:1px dashed #3ecf8e"></span>200 lb goal</span>
           </div>
         </div>
@@ -495,14 +528,19 @@ function render() {
     }
   });
 
+  const allWeightVals = wActual.filter(v=>v!==null).concat(wRolling.filter(v=>v!==null)).concat(wProj.filter(v=>v!==null));
+  const wMin = Math.min(198, ...allWeightVals) - 1;
+  const wMax = Math.max(...wActual.filter(v=>v!==null)) + 1;
+
   charts.w = new Chart(document.getElementById('wChart'), {
     type: 'line',
     data: { labels: wLabels, datasets: [
-      { data: wActual, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', tension: 0.35, pointRadius: d => d.raw !== null ? 4 : 0, pointBackgroundColor: '#4f8ef7', spanGaps: true },
+      { data: wActual, borderColor: 'rgba(79,142,247,0.3)', backgroundColor: 'transparent', borderWidth: 1, tension: 0, pointRadius: d => d.raw !== null ? 3 : 0, pointBackgroundColor: 'rgba(79,142,247,0.5)', spanGaps: true },
+      { data: wRolling, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.08)', borderWidth: 2.5, tension: 0.4, pointRadius: 0, spanGaps: false, fill: true },
       { data: wProj, borderColor: '#4f8ef7', borderDash: [5,4], borderWidth: 1.5, backgroundColor: 'transparent', tension: 0.3, pointRadius: 0, spanGaps: false },
       { data: wLabels.map(()=>200), borderColor: 'rgba(62,207,142,0.5)', borderDash: [4,3], borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent' },
     ]},
-    options: { ...gridOpts(v => v+' lb'), scales: { ...gridOpts().scales, y: { ...gridOpts().scales.y, min: Math.min(198, ...(wActual.filter(v=>v!==null).concat(wProj.filter(v=>v!==null))))-1, max: Math.max(...(wActual.filter(v=>v!==null)))+1, ticks: { font:{family:'DM Mono',size:10}, color:'#6b7280', callback: v=>v+' lb' }, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} }, x: { ticks:{font:{family:'DM Mono',size:10},color:'#6b7280',maxRotation:45,autoSkip:true,maxTicksLimit:12}, grid:{display:false}, border:{display:false} } } }
+    options: { ...gridOpts(v => v+' lb'), scales: { ...gridOpts().scales, y: { ...gridOpts().scales.y, min: wMin, max: wMax, ticks: { font:{family:'DM Mono',size:10}, color:'#6b7280', callback: v=>v+' lb' }, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} }, x: { ticks:{font:{family:'DM Mono',size:10},color:'#6b7280',maxRotation:45,autoSkip:true,maxTicksLimit:12}, grid:{display:false}, border:{display:false} } } }
   });
 
   charts.c = new Chart(document.getElementById('cChart'), {
